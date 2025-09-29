@@ -244,11 +244,12 @@ class ARAnalyzer:
         
         # Key Findings
         over_90_amount = self.aging_summary[self.aging_summary['Aging Category'] == 'Over 90 Days Past Due']['Total Amount'].iloc[0] if not self.aging_summary[self.aging_summary['Aging Category'] == 'Over 90 Days Past Due'].empty else 0
+        over_90_count = self.aging_summary[self.aging_summary['Aging Category'] == 'Over 90 Days Past Due']['Invoice Count'].iloc[0] if not self.aging_summary[self.aging_summary['Aging Category'] == 'Over 90 Days Past Due'].empty else 0
         
         findings = [
             f"• Collection Success: {self.metrics['collection_rate']:.1f}% of collectible invoices have been collected",
-            f"• Outstanding AR: ${self.metrics['collectible_ar']:,.0f} in truly collectible receivables",
-            f"• High Risk: ${over_90_amount:,.0f} over 90 days past due requires immediate attention",
+            f"• Outstanding AR: ${self.metrics['collectible_ar']:,.0f} in truly collectible receivables ({self.metrics['collectible_count']} invoices)",
+            f"• High Risk: ${over_90_amount:,.0f} over 90 days past due across {over_90_count} invoices",
             f"• Excluded Items: ${self.metrics['excluded_total']:,.0f} properly categorized as non-collectible"
         ]
         
@@ -258,6 +259,23 @@ class ARAnalyzer:
         
         for i, finding in enumerate(findings, 22):
             sheet.cell(row=i, column=1, value=finding)
+            sheet.merge_cells(f'A{i}:F{i}')
+        
+        # Recommended Actions
+        sheet['A27'] = 'RECOMMENDED ACTIONS'
+        sheet['A27'].font = Font(bold=True, size=14)
+        sheet['A27'].fill = PatternFill('solid', start_color='FFB6C1')
+        
+        actions = [
+            f'1. FOCUS: Target {over_90_count} invoices over 90 days past due (${over_90_amount:,.0f})',
+            '2. PRIORITY: Large invoices in 31-60 day bucket need immediate attention',
+            '3. INVESTIGATE: Why no current AR - all outstanding invoices are past due',
+            f'4. ESCALATE: Oldest invoice ({self.metrics["oldest_days"]} days) requires legal action',
+            f'5. PROCESS: Review collection process - {100-self.metrics["collection_rate"]:.0f}% of invoices remain uncollected'
+        ]
+        
+        for i, action in enumerate(actions, 28):
+            sheet.cell(row=i, column=1, value=action)
             sheet.merge_cells(f'A{i}:F{i}')
     
     def _create_invoice_data_sheet(self, wb, df_sorted):
