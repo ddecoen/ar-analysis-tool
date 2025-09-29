@@ -55,6 +55,16 @@ class ARAnalyzer:
             # Rename columns if needed
             self.df.rename(columns=column_mapping, inplace=True)
             
+            # Fix invoices where Invoice Date = Due Date (default to Net 30)
+            self.df['Net 30 Adjusted'] = ''
+            same_date_mask = self.df['Invoice Date'] == self.df['Due Date']
+            same_date_count = same_date_mask.sum()
+            
+            if same_date_count > 0:
+                self.df.loc[same_date_mask, 'Due Date'] = self.df.loc[same_date_mask, 'Invoice Date'] + pd.Timedelta(days=30)
+                self.df.loc[same_date_mask, 'Net 30 Adjusted'] = 'Due date adjusted to Net 30 (Invoice Date + 30 days)'
+                print(f"✓ Adjusted {same_date_count} invoices to Net 30 terms (Invoice Date = Due Date)")
+            
             return True
         except Exception as e:
             print(f"✗ Error loading data: {e}")
@@ -310,10 +320,19 @@ class ARAnalyzer:
             # Days past due
             sheet.cell(row=row_idx, column=7, value=row['Days Past Due'])
             
-            # Notes
-            if row['Category'] == 'Excluded':
-                note_cell = sheet.cell(row=row_idx, column=8, value=row['Exclusion Reason'])
+            # Notes - combine exclusion reason and Net 30 adjustment
+            notes = []
+            if row['Category'] == 'Excluded' and row['Exclusion Reason']:
+                notes.append(row['Exclusion Reason'])
+            if row.get('Net 30 Adjusted'):
+                notes.append(row['Net 30 Adjusted'])
+            
+            if notes:
+                note_cell = sheet.cell(row=row_idx, column=8, value=' | '.join(notes))
                 note_cell.font = Font(italic=True, color='666666')
+        
+        # Column widths
+        column_widths = {'A': 15, 'B': 40, 'C': 12, 'D': 12, 'E': 12, 'F': 15, 'G': 12, 'H': 50}
         
         # Column widths
         column_widths = {'A': 15, 'B': 40, 'C': 12, 'D': 12, 'E': 12, 'F': 15, 'G': 12, 'H': 35}
